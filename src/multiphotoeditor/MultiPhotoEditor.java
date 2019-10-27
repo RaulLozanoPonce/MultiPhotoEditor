@@ -278,6 +278,14 @@ public class MultiPhotoEditor extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_desktopPanelComponentResized
 
+    private void setApp(){
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        setExtendedState(MultiPhotoEditor.MAXIMIZED_BOTH);
+        setMinimumSize(getPreferredSize());
+        setIconImage(Toolkit.getDefaultToolkit().getImage(getClass().getResource("/Photos/Logo.png")));
+        setTitle("MultiPhotoEditor");
+    }
+    
     private void setFileFilter() {
         fileChooser = new JFileChooser();
         fileChooser.setAcceptAllFileFilterUsed(false);
@@ -297,12 +305,6 @@ public class MultiPhotoEditor extends javax.swing.JFrame {
         fileChooser.addChoosableFileFilter(filter);
     }
     
-    private String getImageFormat(String name) {
-        for (int i = 0; i < name.length(); i++) {
-            if(name.charAt(i) == '.') return name.substring(i+1);
-        }
-        return "";
-    }
     private void setMnemonic() {
         fileMenu.setMnemonic('A');
         toolMenu.setMnemonic('E');
@@ -316,77 +318,22 @@ public class MultiPhotoEditor extends javax.swing.JFrame {
         helpItem.setMnemonic('H');
     }
     
-    
-    //--------------------------------------------------------------------------
-    
-    private void initDemoInternalFrame(BufferedImage image, boolean mainView){
-        DemoInternalFrame dif = new DemoInternalFrame(openFrameCount++, image, mainView);
-        dif.setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        dif.addInternalFrameListener(new InternalFrameAdapter(){
-            @Override
-            public void internalFrameClosing(InternalFrameEvent e) {
-                if(!dif.isMainWindow()){
-                    saveOneImage(dif);
-                }else{
-                    if(saveAllImages()){
-                        desktopPanel.remove(dif);
-                    }
-                }
-                desktopPanel.updateUI();
-            }
-        });
-        
-        dif.setSize(600, 450);
-        desktopPanel.add(dif);
-        
-        try {
-            dif.setSelected(true);
-        } catch (PropertyVetoException ex) {}
-    }
-    
-    //--------------------------------------------------------------------------
-    
-    private boolean closeWindow(){
-        return (saveAllImages() && JOptionPane.showConfirmDialog(null,
-                "¿Desea salir de Image Editor?", "Salir",
-                JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION);
-    }
-    
-    //--------------------------------------------------------------------------
-    
-    private Mat toThreshold(Mat originalImage, int threshold){
-        Mat grayImage = new Mat(originalImage.rows(),originalImage.cols(),CvType.CV_8U);
-        Mat thresholdImage = new Mat(originalImage.rows(),originalImage.cols(),CvType.CV_8U);
-        Imgproc.cvtColor(originalImage,grayImage,Imgproc.COLOR_BGR2GRAY);
-        Imgproc.threshold(grayImage,thresholdImage,threshold,255,Imgproc.THRESH_BINARY);
-        return thresholdImage;
-    }
-    
-    //--------------------------------------------------------------------------
-    
-    private void setApp(){
-        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        setExtendedState(MultiPhotoEditor.MAXIMIZED_BOTH);
-        setMinimumSize(getPreferredSize());
-        setIconImage(Toolkit.getDefaultToolkit().getImage(getClass().getResource("/Photos/Logo.png")));
-        setTitle("MultiPhotoEditor");
-    }
-    
-    //--------------------------------------------------------------------------
-    
-    private boolean saveImage(DemoInternalFrame dif){
-        if(fileChooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION){
-            File file = fileChooser.getSelectedFile();
-            if(isAcceptedPathSave(file)){
-                completedSave(dif, file);
-                return true;
-            }
+    private String getImageFormat(String name) {
+        for (int i = 0; i < name.length(); i++) {
+            if(name.charAt(i) == '.') return name.substring(i+1);
         }
-        return false;
+        return "";
     }
     
-    private boolean isAcceptedPathSave(File file){
-        if(!formatList.contains(getImageFormat(file.getName()))){
+    private void loadImage(){
+        if(fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION){
+            if(isAcceptedPathLoad()) completedLoad();
+        }
+    }
+    
+    private boolean isAcceptedPathLoad(){
+        fileName = fileChooser.getSelectedFile().getAbsolutePath();
+        if(!formatList.contains(getImageFormat(fileName))){
             JOptionPane.showMessageDialog(null, 
                     "El formato del archivo seleccionado no coincide con los que soporta la aplicación.", 
                     "Formato no aceptado", JOptionPane.ERROR_MESSAGE);
@@ -395,28 +342,17 @@ public class MultiPhotoEditor extends javax.swing.JFrame {
         return true;
     }
     
-    private void completedSave(DemoInternalFrame dif, File file){
-        if(!checkIfFileExists(file.getAbsolutePath())){
-            try {
-                ImageIO.write(dif.getImageDemo(), getImageFormat(file.getName()), file);
-                dif.setIsSaved(true);
-                dif.setDemoTitle();
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(null, 
-                        "La imagen no ha podido ser guardada correctamente.", 
-                        "Imagen no guardada", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-    
-    private boolean checkIfFileExists(String path){
-        if(new File(path).exists()){
-            return JOptionPane.showConfirmDialog(null, 
-                    "Ya existe un archivo con el nombre especificado. ¿Desea sobreescribirlo?", 
-                    "Nombre existente", JOptionPane.YES_NO_OPTION, 
-                    JOptionPane.WARNING_MESSAGE) != JOptionPane.YES_OPTION;
-        }else{
-            return false;
+    private void completedLoad(){
+        try {
+            image = ImageIO.read(new File(fileName));
+            desktopPanel.removeAll();
+            desktopPanel.updateUI();
+            openFrameCount = 0;
+            initDemoInternalFrame(image, true);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(null, 
+                    "La imagen no ha podido ser cargada correctamente.", 
+                    "Imagen no cargada", JOptionPane.ERROR_MESSAGE);
         }
     }
     
@@ -466,17 +402,19 @@ public class MultiPhotoEditor extends javax.swing.JFrame {
         return true;
     }
     
-    //--------------------------------------------------------------------------
-    
-    private void loadImage(){
-        if(fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION){
-            if(isAcceptedPathLoad()) completedLoad();
+    private boolean saveImage(DemoInternalFrame dif){
+        if(fileChooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION){
+            File file = fileChooser.getSelectedFile();
+            if(isAcceptedPathSave(file)){
+                completedSave(dif, file);
+                return true;
+            }
         }
+        return false;
     }
     
-    private boolean isAcceptedPathLoad(){
-        fileName = fileChooser.getSelectedFile().getAbsolutePath();
-        if(!formatList.contains(getImageFormat(fileName))){
+    private boolean isAcceptedPathSave(File file){
+        if(!formatList.contains(getImageFormat(file.getName()))){
             JOptionPane.showMessageDialog(null, 
                     "El formato del archivo seleccionado no coincide con los que soporta la aplicación.", 
                     "Formato no aceptado", JOptionPane.ERROR_MESSAGE);
@@ -485,21 +423,69 @@ public class MultiPhotoEditor extends javax.swing.JFrame {
         return true;
     }
     
-    private void completedLoad(){
-        try {
-            image = ImageIO.read(new File(fileName));
-            desktopPanel.removeAll();
-            desktopPanel.updateUI();
-            openFrameCount = 0;
-            initDemoInternalFrame(image, true);
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(null, 
-                    "La imagen no ha podido ser cargada correctamente.", 
-                    "Imagen no cargada", JOptionPane.ERROR_MESSAGE);
+    private void completedSave(DemoInternalFrame dif, File file){
+        if(!checkIfFileExists(file.getAbsolutePath())){
+            try {
+                ImageIO.write(dif.getImageDemo(), getImageFormat(file.getName()), file);
+                dif.setIsSaved(true);
+                dif.setDemoTitle();
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(null, 
+                        "La imagen no ha podido ser guardada correctamente.", 
+                        "Imagen no guardada", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
     
-    //--------------------------------------------------------------------------
+    private boolean checkIfFileExists(String path){
+        if(new File(path).exists()){
+            return JOptionPane.showConfirmDialog(null, 
+                    "Ya existe un archivo con el nombre especificado. ¿Desea sobreescribirlo?", 
+                    "Nombre existente", JOptionPane.YES_NO_OPTION, 
+                    JOptionPane.WARNING_MESSAGE) != JOptionPane.YES_OPTION;
+        }else{
+            return false;
+        }
+    }
+    
+    private void initDemoInternalFrame(BufferedImage image, boolean mainView){
+        DemoInternalFrame dif = new DemoInternalFrame(openFrameCount++, image, mainView);
+        dif.setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        dif.addInternalFrameListener(new InternalFrameAdapter(){
+            @Override
+            public void internalFrameClosing(InternalFrameEvent e) {
+                if(!dif.isMainWindow()){
+                    saveOneImage(dif);
+                }else{
+                    if(saveAllImages()){
+                        desktopPanel.remove(dif);
+                    }
+                }
+                desktopPanel.updateUI();
+            }
+        });
+        
+        dif.setSize(600, 450);
+        desktopPanel.add(dif);
+        
+        try {
+            dif.setSelected(true);
+        } catch (PropertyVetoException ex) {}
+    }
+    
+    private Mat toThreshold(Mat originalImage, int threshold){
+        Mat grayImage = new Mat(originalImage.rows(),originalImage.cols(),CvType.CV_8U);
+        Mat thresholdImage = new Mat(originalImage.rows(),originalImage.cols(),CvType.CV_8U);
+        Imgproc.cvtColor(originalImage,grayImage,Imgproc.COLOR_BGR2GRAY);
+        Imgproc.threshold(grayImage,thresholdImage,threshold,255,Imgproc.THRESH_BINARY);
+        return thresholdImage;
+    }
+    
+    private boolean closeWindow(){
+        return (saveAllImages() && JOptionPane.showConfirmDialog(null,
+                "¿Desea salir de Image Editor?", "Salir",
+                JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION);
+    }
     
     public static void main(String args[]) throws Exception {
         UIManager.setLookAndFeel("com.sun.java.swing.plaf.nimbus.NimbusLookAndFeel");
@@ -549,8 +535,7 @@ public class MultiPhotoEditor extends javax.swing.JFrame {
             scrollPane.setBounds(0, 0, getWidth(), getHeight());
             scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
             scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-            Board board = new Board();
-            board.setImage(this.imageDemo);
+            Board board = new Board(this.imageDemo);
             scrollPane.setViewportView(board);
             getContentPane().add(scrollPane);
         }
@@ -565,10 +550,6 @@ public class MultiPhotoEditor extends javax.swing.JFrame {
             demo_title += fileName;
             if(!mainWindow) demo_title += " " + this.number;
             setTitle(demo_title);
-        }
-        
-        public String getDemoTitle(){
-            return getTitle();
         }
 
         public boolean isIsSaved() {

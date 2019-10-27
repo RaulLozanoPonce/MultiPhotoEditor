@@ -7,7 +7,11 @@ import javax.swing.JPanel;
 
 public class Board extends JPanel{
     
-    private BufferedImage image;
+    private final BufferedImage image;
+
+    public Board(BufferedImage image) {
+        this.image = image;
+    }
     
     @Override
     public void paintComponent(Graphics g){
@@ -26,17 +30,5 @@ public class Board extends JPanel{
     
     private int getImageY(){
         return (getHeight()- image.getHeight())/2;
-    }
-    
-    public int getImageWidth(){
-        return image.getWidth();
-    }
-    
-    public int getImageHeight(){
-        return image.getHeight();
-    }
-
-    void setImage(BufferedImage image) {
-        this.image = image;
     }
 }
